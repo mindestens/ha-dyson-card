@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Add optional `sleep_timer_entity` config override for setups that expose the timer through `number` or `input_number` helpers.
+- Rework sleep timer UX to show quick-set buttons only when inactive, and a centered remaining-time display with cancel action while running.
+- Switch custom sleep timer input from hours to minutes (`1..480`) and improve localized labels (`Deaktiviert`, `Minute`/`Minuten`).
+- Preserve focus while typing in the custom sleep timer input to avoid interrupted edits during state updates.
+- Improve sleep timer parsing to support multiple duration formats and make active timer detection more reliable.
+- Add service-domain fallback for helper entities when no Dyson device id is available (`number.set_value` / `input_number.set_value`).
 - Fix Auto mode toggle by resolving preset mode values case-insensitively and using a safe non-Auto fallback when disabling Auto.
 - Add `hide_unsupported` card option to fully hide unavailable controls and info sections instead of only disabling them.
 - Add `hide_empty_sensors` card option to hide sensor badges when values are missing, `unknown`, or `unavailable`.

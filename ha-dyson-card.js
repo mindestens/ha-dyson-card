@@ -237,10 +237,11 @@ class HaDysonCard extends HTMLElement {
 
   set hass(hass) {
     const preserveEditorFocus = this._presetEditorHasFocus();
+    const preserveTimerInputFocus = this._timerInputHasFocus();
     this._hass = hass;
     this._ensureDerived();
     this._reconcilePendingState();
-    if (!preserveEditorFocus) {
+    if (!preserveEditorFocus && !preserveTimerInputFocus) {
       this._render();
     }
   }
@@ -266,7 +267,7 @@ class HaDysonCard extends HTMLElement {
       const registry = await this._ensureRegistryCache();
       if (!registry) return;
       this._derived = this._deriveFromRegistry(registry);
-      if (!this._presetEditorHasFocus()) {
+      if (!this._presetEditorHasFocus() && !this._timerInputHasFocus()) {
         this._render();
       }
     } catch (_error) {
@@ -278,6 +279,12 @@ class HaDysonCard extends HTMLElement {
     const active = this.shadowRoot?.activeElement;
     const editor = this.shadowRoot?.querySelector(".preset-editor");
     return Boolean(this._presetEditorOpen && active && editor?.contains(active));
+  }
+
+  _timerInputHasFocus() {
+    const active = this.shadowRoot?.activeElement;
+    const timerInput = this.shadowRoot?.querySelector(".timer-custom-input");
+    return Boolean(this._customTimerOpen && timerInput && active === timerInput);
   }
 
   _syncPresetDraftFromEditor() {
@@ -467,6 +474,9 @@ class HaDysonCard extends HTMLElement {
   }
 
   _sleepTimerEntity() {
+    if (this._config?.sleep_timer_entity) {
+      return String(this._config.sleep_timer_entity);
+    }
     return this._derived?.sleepTimerEntity || "";
   }
 
@@ -942,7 +952,10 @@ class HaDysonCard extends HTMLElement {
       airflow: "Luftstrom",
       sleep_timer: "Schlaf-Timer",
       custom_sleep_timer: "Eigener Schlaf-Timer",
+      off: "Deaktiviert",
       hours: "Stunden",
+      minute: "Minute",
+      minutes: "Minuten",
       set: "Setzen",
       cancel: "Abbrechen",
       forward: "Vorwärts",
@@ -992,7 +1005,10 @@ class HaDysonCard extends HTMLElement {
       airflow: "Airflow",
       sleep_timer: "Sleep Timer",
       custom_sleep_timer: "Custom sleep timer",
+      off: "Off",
       hours: "Hours",
+      minute: "minute",
+      minutes: "minutes",
       set: "Set",
       cancel: "Cancel",
       forward: "Forward",
@@ -1208,10 +1224,79 @@ class HaDysonCard extends HTMLElement {
   }
 
   _timerLabel(attributes) {
-    const minutes = Number(attributes.sleep_timer || 0);
-    if (!Number.isFinite(minutes) || minutes <= 0) return "Off";
-    if (minutes % 60 === 0) return `${minutes / 60}h`;
-    return `${minutes}m`;
+    const remainingSeconds = this._sleepTimerRemainingSeconds(attributes);
+    if (!Number.isFinite(remainingSeconds) || remainingSeconds <= 0) return this._t("off");
+    const remainingMinutes = Math.ceil(remainingSeconds / 60);
+    if (remainingMinutes % 60 === 0) return `${remainingMinutes / 60}h`;
+    return `${remainingMinutes}m`;
+  }
+
+  _parseDurationSeconds(value, unitHint = "") {
+    const text = String(value ?? "").trim();
+    if (!text || ["unknown", "unavailable", "none", "null"].includes(text.toLowerCase())) {
+      return null;
+    }
+
+    const clockMatch = text.match(/^(\d+):(\d{2})(?::(\d{2}))?$/);
+    if (clockMatch) {
+      if (clockMatch[3] !== undefined) {
+        const hours = Number(clockMatch[1]);
+        const minutes = Number(clockMatch[2]);
+        const seconds = Number(clockMatch[3]);
+        return (hours * 3600) + (minutes * 60) + seconds;
+      }
+      const minutes = Number(clockMatch[1]);
+      const seconds = Number(clockMatch[2]);
+      return (minutes * 60) + seconds;
+    }
+
+    const numericMatch = text.match(/-?\d+(?:\.\d+)?/);
+    if (!numericMatch) return null;
+    const numeric = Number(numericMatch[0]);
+    if (!Number.isFinite(numeric)) return null;
+
+    const unitText = `${text} ${unitHint}`.toLowerCase();
+    if (/(^|\W)(s|sec|secs|second|seconds)(\W|$)/.test(unitText)) {
+      return Math.max(0, Math.round(numeric));
+    }
+    if (/(^|\W)(h|hr|hrs|hour|hours)(\W|$)/.test(unitText)) {
+      return Math.max(0, Math.round(numeric * 3600));
+    }
+    return Math.max(0, Math.round(numeric * 60));
+  }
+
+  _sleepTimerEntitySeconds() {
+    const stateObj = this._stateObj(this._sleepTimerEntity());
+    if (!stateObj) return null;
+    return this._parseDurationSeconds(stateObj.state, stateObj.attributes?.unit_of_measurement || "");
+  }
+
+  _sleepTimerAttributeSeconds(attributes) {
+    return this._parseDurationSeconds(attributes.sleep_timer, "minutes");
+  }
+
+  _sleepTimerRemainingSeconds(attributes) {
+    const entitySeconds = this._sleepTimerEntitySeconds();
+    const attributeSeconds = this._sleepTimerAttributeSeconds(attributes);
+    if (Number.isFinite(entitySeconds) && entitySeconds > 0) return entitySeconds;
+    if (Number.isFinite(attributeSeconds) && attributeSeconds > 0) return attributeSeconds;
+    if (Number.isFinite(entitySeconds)) return Math.max(0, entitySeconds);
+    if (Number.isFinite(attributeSeconds)) return Math.max(0, attributeSeconds);
+    return 0;
+  }
+
+  _sleepTimerMinuteUnit(totalMinutes) {
+    return Number(totalMinutes) === 1 ? this._t("minute") : this._t("minutes");
+  }
+
+  _sleepTimerDisplayValue(attributes) {
+    const remainingSeconds = this._sleepTimerRemainingSeconds(attributes);
+    if (!Number.isFinite(remainingSeconds) || remainingSeconds <= 0) {
+      return this._timerLabel(attributes);
+    }
+    const minutes = Math.max(1, Math.ceil(remainingSeconds / 60));
+    const unitLabel = this._sleepTimerMinuteUnit(minutes);
+    return `${minutes} ${unitLabel}`;
   }
 
   _isAutoMode(mode, attributes) {
@@ -1737,17 +1822,30 @@ class HaDysonCard extends HTMLElement {
 
   async _setSleepTimer(minutes) {
     const deviceId = this._deviceId();
+    const timerEntityId = this._sleepTimerEntity();
     const hasSleepTimer = Boolean(this._sleepTimerEntity()) || Number.isFinite(Number(this._stateObj(this._config.entity)?.attributes?.sleep_timer));
-    if (!this._hass || !deviceId || this._busy || !hasSleepTimer) return;
-    const currentMinutes = Number(this._stateObj(this._config.entity)?.attributes?.sleep_timer || 0);
-    if (Number.isFinite(currentMinutes) && currentMinutes === Number(minutes)) return;
+    if (!this._hass || this._busy || !hasSleepTimer) return;
+    const attributes = this._stateObj(this._config.entity)?.attributes || {};
+    const requestedMinutes = Number(minutes);
+    const remainingSeconds = this._sleepTimerRemainingSeconds(attributes);
+    const currentMinutes = Number(attributes.sleep_timer || 0);
+    if (requestedMinutes === 0 && remainingSeconds <= 0) return;
+    if (!this._sleepTimerEntity() && Number.isFinite(currentMinutes) && currentMinutes === requestedMinutes) return;
     this._busy = true;
     this._render();
     try {
-      await this._hass.callService("hass_dyson", "set_sleep_timer", {
-        device_id: deviceId,
-        minutes,
-      });
+      if (deviceId) {
+        await this._hass.callService("hass_dyson", "set_sleep_timer", {
+          device_id: deviceId,
+          minutes: requestedMinutes,
+        });
+      } else if (timerEntityId) {
+        const timerEntityDomain = String(timerEntityId).split(".")[0] || "number";
+        await this._hass.callService(timerEntityDomain === "input_number" ? "input_number" : "number", "set_value", {
+          entity_id: timerEntityId,
+          value: requestedMinutes,
+        });
+      }
     } finally {
       this._busy = false;
       this._render();
@@ -2036,15 +2134,22 @@ class HaDysonCard extends HTMLElement {
       this._render();
     });
 
+    this.shadowRoot?.querySelector("[data-timer-stop]")?.addEventListener("click", async () => {
+      this._clearPresetDeleteArm();
+      this._timerMenuOpen = false;
+      this._customTimerOpen = false;
+      await this._setSleepTimer(0);
+    });
+
     this.shadowRoot?.querySelector("[data-timer-set]")?.addEventListener("click", async () => {
       this._clearPresetDeleteArm();
       const input = this.shadowRoot?.querySelector(".timer-custom-input");
-      const requestedHours = Number(input?.value);
-      if (!Number.isFinite(requestedHours) || requestedHours <= 0) return;
-      const hours = Math.max(1, Math.min(9, Math.round(requestedHours)));
+      const requestedMinutes = Number(input?.value);
+      if (!Number.isFinite(requestedMinutes) || requestedMinutes <= 0) return;
+      const minutes = Math.max(1, Math.min(480, Math.round(requestedMinutes)));
       this._timerMenuOpen = false;
       this._customTimerOpen = false;
-      await this._setSleepTimer(hours * 60);
+      await this._setSleepTimer(minutes);
     });
 
     this.shadowRoot?.querySelector("[data-preset-add]")?.addEventListener("click", () => {
@@ -2240,6 +2345,9 @@ class HaDysonCard extends HTMLElement {
     const filterPercent = this._filterPercent();
     const timerLabel = this._timerLabel(attributes);
     const activeTimer = Number(attributes.sleep_timer || 0);
+    const activeTimerSeconds = this._sleepTimerRemainingSeconds(attributes);
+    const timerRunning = activeTimerSeconds > 0;
+    const timerCountdownLabel = this._sleepTimerDisplayValue(attributes);
     const autoActive = this._isAutoMode(mode, attributes);
     const autoAvailable = this._supportsAutoMode(attributes);
     const nightActive = this._nightModeOn(attributes);
@@ -2462,6 +2570,39 @@ class HaDysonCard extends HTMLElement {
         .timer-custom {
           display: grid;
           gap: 8px;
+        }
+        .timer-active-bar {
+          display: grid;
+          grid-template-columns: 1fr auto 1fr;
+          align-items: center;
+          gap: 8px;
+          min-height: 32px;
+        }
+        .timer-active-spacer {
+          min-width: 0;
+        }
+        .timer-countdown {
+          color: var(--primary-text-color);
+          text-align: center;
+          font-size: 0.92rem;
+          font-weight: 860;
+          letter-spacing: 0.04em;
+          font-variant-numeric: tabular-nums;
+          white-space: nowrap;
+        }
+        .timer-stop-button {
+          min-width: 0;
+          min-height: 32px;
+          padding: 6px 12px;
+          border: 1px solid var(--dyson-soft-border);
+          border-radius: 999px;
+          justify-self: end;
+          background: var(--dyson-pill-bg);
+          color: var(--primary-text-color);
+          font: inherit;
+          font-size: 0.68rem;
+          font-weight: 780;
+          box-shadow: var(--dyson-inner-highlight);
         }
         .direction-chip {
           display: inline-flex;
@@ -3622,26 +3763,34 @@ class HaDysonCard extends HTMLElement {
                     <div class="row-label">
                       <span>${this._t("sleep_timer")}</span>
                     </div>
-                    <div class="timer-inline-buttons">
-                      ${this._renderTimerButton(60, "1h", activeTimer)}
-                      ${this._renderTimerButton(120, "2h", activeTimer)}
-                      ${this._renderTimerButton(240, "4h", activeTimer)}
-                      <button class="timer-chip timer-plus ${this._customTimerOpen ? "active" : ""}" data-timer-custom aria-label="${this._t("custom_sleep_timer")}">
-                        <ha-icon icon="mdi:plus"></ha-icon>
-                      </button>
-                    </div>
+                    ${timerRunning ? `
+                      <div class="timer-active-bar">
+                        <div class="timer-active-spacer"></div>
+                        <div class="timer-countdown">${timerCountdownLabel}</div>
+                        <button class="timer-stop-button" data-timer-stop>${this._t("cancel")}</button>
+                      </div>
+                    ` : `
+                      <div class="timer-inline-buttons">
+                        ${this._renderTimerButton(60, "1h", activeTimer)}
+                        ${this._renderTimerButton(120, "2h", activeTimer)}
+                        ${this._renderTimerButton(240, "4h", activeTimer)}
+                        <button class="timer-chip timer-plus ${this._customTimerOpen ? "active" : ""}" data-timer-custom aria-label="${this._t("custom_sleep_timer")}">
+                          <ha-icon icon="mdi:plus"></ha-icon>
+                        </button>
+                      </div>
+                    `}
                   </div>
                 ` : ""}
               </div>
             ` : ""}
             ${showSleepTimerControl ? `
-              <div class="timer-flyout" style="${this._customTimerOpen ? "" : "display:none;"}">
+              <div class="timer-flyout" style="${this._customTimerOpen && !timerRunning ? "" : "display:none;"}">
                 <div class="row-label">
                   <span>${this._t("sleep_timer")}</span>
                   <strong>${timerLabel}</strong>
                 </div>
                 <div class="timer-custom">
-                  <input class="timer-custom-input" type="number" min="1" max="9" step="1" inputmode="numeric" placeholder="${this._t("hours")}" />
+                  <input class="timer-custom-input" type="number" min="1" max="480" step="1" inputmode="numeric" placeholder="${this._t("minutes")}" />
                   <button class="timer-action" data-timer-set>${this._t("set")}</button>
                   <button class="timer-action" data-timer-cancel>${this._t("cancel")}</button>
                 </div>
