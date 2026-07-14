@@ -199,6 +199,8 @@ class HaDysonCard extends HTMLElement {
     this._presetDraftIcon = "mdi:crosshairs-gps";
     this._pendingPresetDeleteId = null;
     this._sensorDetailsOpen = false;
+    this._timerNotice = null;
+    this._timerNoticeTimer = null;
   }
 
   setConfig(config) {
@@ -956,6 +958,7 @@ class HaDysonCard extends HTMLElement {
       hours: "Stunden",
       minute: "Minute",
       minutes: "Minuten",
+      sleep_timer_max_exceeded: "Es sind maximal {max} Minuten ({hours}h) erlaubt.",
       set: "Setzen",
       cancel: "Abbrechen",
       forward: "Vorwärts",
@@ -1009,6 +1012,7 @@ class HaDysonCard extends HTMLElement {
       hours: "Hours",
       minute: "minute",
       minutes: "minutes",
+      sleep_timer_max_exceeded: "A maximum of {max} minutes ({hours}h) is allowed.",
       set: "Set",
       cancel: "Cancel",
       forward: "Forward",
@@ -1221,6 +1225,25 @@ class HaDysonCard extends HTMLElement {
       .filter((value) => Number.isFinite(value));
     if (!values.length) return null;
     return Math.min(...values);
+  }
+
+  _notify(message) {
+    const text = String(message || "").trim();
+    if (!text) return;
+    this._timerNotice = { level: "warning", text };
+    if (this._timerNoticeTimer) {
+      clearTimeout(this._timerNoticeTimer);
+    }
+    this._render();
+    this._timerNoticeTimer = setTimeout(() => {
+      this._timerNotice = null;
+      this._timerNoticeTimer = null;
+      this._render();
+    }, 3200);
+  }
+
+  _sleepTimerMaxMinutes() {
+    return 480;
   }
 
   _timerLabel(attributes) {
@@ -1827,8 +1850,14 @@ class HaDysonCard extends HTMLElement {
     if (!this._hass || this._busy || !hasSleepTimer) return;
     const attributes = this._stateObj(this._config.entity)?.attributes || {};
     const requestedMinutes = Number(minutes);
+    const maxMinutes = this._sleepTimerMaxMinutes();
+    const maxHours = Number((maxMinutes / 60).toFixed(1));
     const remainingSeconds = this._sleepTimerRemainingSeconds(attributes);
     const currentMinutes = Number(attributes.sleep_timer || 0);
+    if (Number.isFinite(requestedMinutes) && requestedMinutes > maxMinutes) {
+      this._notify(this._t("sleep_timer_max_exceeded", { max: maxMinutes, hours: maxHours }));
+      return;
+    }
     if (requestedMinutes === 0 && remainingSeconds <= 0) return;
     if (!this._sleepTimerEntity() && Number.isFinite(currentMinutes) && currentMinutes === requestedMinutes) return;
     this._busy = true;
@@ -2126,6 +2155,10 @@ class HaDysonCard extends HTMLElement {
       this._timerMenuOpen = true;
       this._customTimerOpen = true;
       this._render();
+      requestAnimationFrame(() => {
+        const input = this.shadowRoot?.querySelector(".timer-custom-input");
+        input?.focus();
+      });
     });
 
     this.shadowRoot?.querySelector("[data-timer-cancel]")?.addEventListener("click", () => {
@@ -2146,7 +2179,13 @@ class HaDysonCard extends HTMLElement {
       const input = this.shadowRoot?.querySelector(".timer-custom-input");
       const requestedMinutes = Number(input?.value);
       if (!Number.isFinite(requestedMinutes) || requestedMinutes <= 0) return;
-      const minutes = Math.max(1, Math.min(480, Math.round(requestedMinutes)));
+      const maxMinutes = this._sleepTimerMaxMinutes();
+      const maxHours = Number((maxMinutes / 60).toFixed(1));
+      const minutes = Math.round(requestedMinutes);
+      if (minutes > maxMinutes) {
+        this._notify(this._t("sleep_timer_max_exceeded", { max: maxMinutes, hours: maxHours }));
+        return;
+      }
       this._timerMenuOpen = false;
       this._customTimerOpen = false;
       await this._setSleepTimer(minutes);
@@ -2344,6 +2383,7 @@ class HaDysonCard extends HTMLElement {
     const speedPercent = this._currentSpeed(attributes);
     const filterPercent = this._filterPercent();
     const timerLabel = this._timerLabel(attributes);
+    const sleepTimerMaxMinutes = this._sleepTimerMaxMinutes();
     const activeTimer = Number(attributes.sleep_timer || 0);
     const activeTimerSeconds = this._sleepTimerRemainingSeconds(attributes);
     const timerRunning = activeTimerSeconds > 0;
@@ -2667,6 +2707,19 @@ class HaDysonCard extends HTMLElement {
           font: inherit;
           font-size: 0.75rem;
           font-weight: 750;
+        }
+        .timer-notice {
+          margin-top: 8px;
+          padding: 8px 10px;
+          border-radius: 12px;
+          text-align: center;
+          font-size: 0.74rem;
+          font-weight: 780;
+        }
+        .timer-notice.warning {
+          color: color-mix(in srgb, var(--error-color, #d14343) 86%, var(--primary-text-color));
+          background: color-mix(in srgb, var(--error-color, #d14343) 14%, var(--dyson-raised-bg));
+          border: 1px solid color-mix(in srgb, var(--error-color, #d14343) 34%, transparent);
         }
         .control-shell {
           display: grid;
@@ -3790,10 +3843,11 @@ class HaDysonCard extends HTMLElement {
                   <strong>${timerLabel}</strong>
                 </div>
                 <div class="timer-custom">
-                  <input class="timer-custom-input" type="number" min="1" max="480" step="1" inputmode="numeric" placeholder="${this._t("minutes")}" />
+                  <input class="timer-custom-input" type="number" min="1" max="${sleepTimerMaxMinutes}" step="1" inputmode="numeric" placeholder="${this._t("minutes")}" />
                   <button class="timer-action" data-timer-set>${this._t("set")}</button>
                   <button class="timer-action" data-timer-cancel>${this._t("cancel")}</button>
                 </div>
+                ${this._timerNotice ? `<div class="timer-notice ${this._timerNotice.level}">${this._escapeHtml(this._timerNotice.text)}</div>` : ""}
               </div>
             ` : ""}
           </div>
