@@ -2467,42 +2467,48 @@ class HaDysonCard extends HTMLElement {
           box-sizing: border-box;
         }
         ha-card {
-          --dyson-panel-bg: color-mix(in srgb, var(--card-background-color, #fff) 94%, #000 6%);
-          --dyson-field-bg: color-mix(in srgb, var(--card-background-color, #fff) 84%, transparent);
+          --dyson-panel-bg: var(--card-background-color, #fff);
+          --dyson-field-bg: var(--card-background-color, #fff);
           --dyson-raised-bg: var(--card-background-color, #fff);
-          --dyson-pill-bg: color-mix(in srgb, var(--card-background-color, #fff) 90%, var(--primary-text-color) 5%);
-          --dyson-active-bg: color-mix(in srgb, var(--primary-color, #4f46e5) 16%, var(--card-background-color, #fff));
-          --dyson-control-bg: color-mix(in srgb, var(--card-background-color, #fff) 92%, #000 8%);
-          --dyson-inset-bg: color-mix(in srgb, var(--card-background-color, #fff) 84%, #000 16%);
-          --dyson-panel-surface: color-mix(in srgb, var(--dyson-panel-bg) 72%, transparent);
-          --dyson-wheel-bg: color-mix(in srgb, var(--card-background-color, #ffffff) 78%, var(--primary-text-color) 22%);
-          --dyson-cone-bg: color-mix(in srgb, var(--primary-color, #4f46e5) 22%, transparent);
+          --dyson-color-accent: var(--primary-color, #03a9f4);
+          --dyson-color-success: var(--success-color, #22c55e);
+          --dyson-color-warning: var(--warning-color, #f59e0b);
+          --dyson-color-error: var(--error-color, #ef4444);
+          --dyson-color-info: var(--info-color, var(--dyson-color-accent));
+          --dyson-aqi-good: var(--dyson-color-success);
+          --dyson-aqi-fair: var(--dyson-color-warning);
+          --dyson-aqi-poor: var(--dyson-color-error);
+          --dyson-pill-bg: var(--card-background-color, #fff);
+          --dyson-active-bg: var(--dyson-color-accent);
+          --dyson-control-bg: var(--card-background-color, #fff);
+          --dyson-inset-bg: var(--card-background-color, #fff);
+          --dyson-panel-surface: var(--dyson-panel-bg);
+          --dyson-wheel-bg: var(--card-background-color, #fff);
+          --dyson-cone-bg: var(--dyson-color-accent);
           --dyson-border: var(--divider-color);
-          --dyson-soft-border: color-mix(in srgb, var(--divider-color) 72%, transparent);
-          --dyson-shadow: 0 4px 12px color-mix(in srgb, #000 16%, transparent);
-          --dyson-inner-highlight: inset 0 1px 0 color-mix(in srgb, var(--primary-text-color) 5%, transparent);
+          --dyson-soft-border: var(--divider-color);
+          --dyson-shadow: 0 4px 12px rgba(0, 0, 0, 0.16);
+          --dyson-inner-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.08);
           padding: 12px;
           margin-block-end: max(12px, env(safe-area-inset-bottom));
           border-radius: 18px;
           overflow: hidden;
           color: var(--primary-text-color);
         }
-        @media (prefers-color-scheme: dark) {
+        @supports (color: color-mix(in srgb, white 50%, black)) {
           ha-card {
-            --dyson-panel-bg: #242b33;
-            --dyson-field-bg: #1b222a;
-            --dyson-raised-bg: #2b333d;
-            --dyson-pill-bg: #28323c;
-            --dyson-active-bg: #123f56;
-            --dyson-control-bg: #202832;
-            --dyson-inset-bg: #171d24;
-            --dyson-panel-surface: var(--dyson-panel-bg);
-            --dyson-wheel-bg: #505861;
-            --dyson-cone-bg: rgba(3, 169, 244, 0.25);
-            --dyson-border: rgba(255, 255, 255, 0.23);
-            --dyson-soft-border: rgba(255, 255, 255, 0.13);
-            --dyson-shadow: 0 8px 18px color-mix(in srgb, #000 34%, transparent);
-            --dyson-inner-highlight: inset 0 1px 0 color-mix(in srgb, white 10%, transparent);
+            --dyson-panel-bg: color-mix(in srgb, var(--card-background-color, #fff) 94%, #000 6%);
+            --dyson-field-bg: color-mix(in srgb, var(--card-background-color, #fff) 84%, transparent);
+            --dyson-pill-bg: color-mix(in srgb, var(--card-background-color, #fff) 90%, var(--primary-text-color) 5%);
+            --dyson-active-bg: color-mix(in srgb, var(--dyson-color-accent) 16%, var(--card-background-color, #fff));
+            --dyson-control-bg: color-mix(in srgb, var(--card-background-color, #fff) 92%, #000 8%);
+            --dyson-inset-bg: color-mix(in srgb, var(--card-background-color, #fff) 84%, #000 16%);
+            --dyson-panel-surface: color-mix(in srgb, var(--dyson-panel-bg) 72%, transparent);
+            --dyson-wheel-bg: color-mix(in srgb, var(--card-background-color, #ffffff) 78%, var(--primary-text-color) 22%);
+            --dyson-cone-bg: color-mix(in srgb, var(--dyson-color-accent) 22%, transparent);
+            --dyson-soft-border: color-mix(in srgb, var(--divider-color) 72%, transparent);
+            --dyson-shadow: 0 4px 12px color-mix(in srgb, #000 16%, transparent);
+            --dyson-inner-highlight: inset 0 1px 0 color-mix(in srgb, var(--primary-text-color) 5%, transparent);
           }
         }
         .card {
@@ -2558,12 +2564,14 @@ class HaDysonCard extends HTMLElement {
           display: inline-flex;
           align-items: center;
           justify-content: center;
+          background: rgba(127, 127, 127, 0.08);
           background: color-mix(in srgb, var(--primary-text-color) 6%, transparent);
         }
         .control-pill.active,
         .timer-chip.active,
         .direction-chip.active {
-          border-color: color-mix(in srgb, var(--primary-color, #4f46e5) 34%, transparent);
+          border-color: var(--dyson-color-accent);
+          border-color: color-mix(in srgb, var(--dyson-color-accent) 34%, transparent);
           background: var(--dyson-active-bg);
           color: var(--primary-text-color);
         }
@@ -2576,6 +2584,7 @@ class HaDysonCard extends HTMLElement {
           border: 1px solid var(--dyson-soft-border);
           border-radius: 18px;
           padding: 6px;
+          background: var(--dyson-field-bg);
           background: color-mix(in srgb, var(--dyson-field-bg) 82%, transparent);
         }
         .direction-row.single-control {
@@ -2717,8 +2726,11 @@ class HaDysonCard extends HTMLElement {
           font-weight: 780;
         }
         .timer-notice.warning {
+          color: var(--error-color, #d14343);
           color: color-mix(in srgb, var(--error-color, #d14343) 86%, var(--primary-text-color));
+          background: rgba(209, 67, 67, 0.12);
           background: color-mix(in srgb, var(--error-color, #d14343) 14%, var(--dyson-raised-bg));
+          border: 1px solid rgba(209, 67, 67, 0.34);
           border: 1px solid color-mix(in srgb, var(--error-color, #d14343) 34%, transparent);
         }
         .control-shell {
@@ -2763,11 +2775,13 @@ class HaDysonCard extends HTMLElement {
         }
         .wheel-ring {
           fill: none;
+          stroke: var(--primary-text-color, #111);
           stroke: color-mix(in srgb, var(--primary-text-color, #111) 14%, transparent);
           stroke-width: 2;
           pointer-events: none;
         }
         .wheel-limit {
+          stroke: var(--primary-text-color, #111);
           stroke: color-mix(in srgb, var(--primary-text-color, #111) 28%, transparent);
           stroke-width: 3;
           stroke-linecap: round;
@@ -2779,7 +2793,8 @@ class HaDysonCard extends HTMLElement {
         }
         .wheel-direct {
           fill: none;
-          stroke: color-mix(in srgb, var(--primary-color, #4f46e5) 72%, white 8%);
+          stroke: var(--dyson-color-accent);
+          stroke: color-mix(in srgb, var(--dyson-color-accent) 72%, white 8%);
           stroke-width: 8;
           stroke-linecap: round;
           pointer-events: none;
@@ -2791,9 +2806,13 @@ class HaDysonCard extends HTMLElement {
           display: grid;
           place-items: center;
           border-radius: 999px;
-          background: color-mix(in srgb, var(--success-color, #22c55e) 82%, transparent);
+          background: var(--dyson-color-success);
+          background: color-mix(in srgb, var(--dyson-color-success) 82%, transparent);
+          border: 1px solid rgba(255, 255, 255, 0.45);
           border: 1px solid color-mix(in srgb, white 45%, transparent);
           box-shadow:
+            inset 0 1px 0 rgba(255, 255, 255, 0.42),
+            0 4px 10px rgba(0, 0, 0, 0.24),
             inset 0 1px 0 color-mix(in srgb, white 42%, transparent),
             0 4px 10px color-mix(in srgb, #000 24%, transparent);
           color: white;
@@ -2801,6 +2820,7 @@ class HaDysonCard extends HTMLElement {
         }
         .wheel-preset-marker ha-icon {
           --mdc-icon-size: 18px;
+          filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.32));
           filter: drop-shadow(0 1px 1px color-mix(in srgb, #000 32%, transparent));
         }
         .wheel-handle {
@@ -2845,7 +2865,7 @@ class HaDysonCard extends HTMLElement {
         }
         .wheel-speed ha-icon {
           --mdc-icon-size: 15px;
-          color: var(--primary-color, #4f46e5);
+          color: var(--dyson-color-accent);
         }
         .speed-control {
           --speed-fill: ${speedPercent}%;
@@ -2856,6 +2876,7 @@ class HaDysonCard extends HTMLElement {
           place-items: center;
           border-radius: 999px;
           touch-action: none;
+          filter: drop-shadow(0 5px 12px rgba(0, 0, 0, 0.1));
           filter: drop-shadow(0 5px 12px color-mix(in srgb, #000 10%, transparent));
         }
         .speed-rail {
@@ -2867,9 +2888,16 @@ class HaDysonCard extends HTMLElement {
           background:
             linear-gradient(
               to top,
-              color-mix(in srgb, var(--primary-color, #03a9f4) 86%, #00bcd4 14%) 0 var(--speed-fill),
+              var(--dyson-color-accent) 0 var(--speed-fill),
+              rgba(127, 127, 127, 0.08) var(--speed-fill) 100%
+            );
+          background:
+            linear-gradient(
+              to top,
+              color-mix(in srgb, var(--dyson-color-accent) 88%, white 0%) 0 var(--speed-fill),
               color-mix(in srgb, var(--primary-text-color) 8%, transparent) var(--speed-fill) 100%
             );
+          box-shadow: inset 0 0 0 1px rgba(127, 127, 127, 0.1);
           box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--primary-text-color) 7%, transparent);
           pointer-events: none;
         }
@@ -2961,7 +2989,7 @@ class HaDysonCard extends HTMLElement {
           box-shadow: var(--dyson-inner-highlight);
         }
         .speed-power-button.active {
-          border-color: color-mix(in srgb, var(--primary-color, #4f46e5) 34%, transparent);
+          border-color: color-mix(in srgb, var(--dyson-color-accent) 34%, transparent);
           background: var(--dyson-active-bg);
         }
         .speed-power-button ha-icon {
@@ -2994,7 +3022,7 @@ class HaDysonCard extends HTMLElement {
         }
         .timer-icon-button.active {
           border-color: transparent;
-          background: color-mix(in srgb, var(--primary-color, #4f46e5) 18%, var(--card-background-color, #fff));
+          background: color-mix(in srgb, var(--dyson-color-accent) 18%, var(--card-background-color, #fff));
         }
         .timer-icon-button ha-icon {
           --mdc-icon-size: 19px;
@@ -3010,7 +3038,7 @@ class HaDysonCard extends HTMLElement {
         }
         .wheel-spinner {
           fill: none;
-          stroke: var(--primary-color, #4f46e5);
+          stroke: var(--dyson-color-accent);
           stroke-width: 3;
           stroke-linecap: round;
           stroke-dasharray: 18 34;
@@ -3059,7 +3087,7 @@ class HaDysonCard extends HTMLElement {
           padding: 5px 9px;
           border: 1px solid var(--dyson-soft-border);
           border-radius: 999px;
-          background: color-mix(in srgb, var(--primary-color, #03a9f4) 9%, var(--dyson-pill-bg));
+          background: color-mix(in srgb, var(--dyson-color-accent) 9%, var(--dyson-pill-bg));
           color: var(--primary-text-color);
           font: inherit;
           font-size: 0.66rem;
@@ -3118,31 +3146,31 @@ class HaDysonCard extends HTMLElement {
           color: var(--primary-text-color);
         }
         .sensor-aqi.good {
-          border-color: color-mix(in srgb, #22c55e 46%, transparent);
-          background: color-mix(in srgb, #22c55e 18%, var(--dyson-raised-bg));
+          border-color: color-mix(in srgb, var(--dyson-aqi-good) 46%, transparent);
+          background: color-mix(in srgb, var(--dyson-aqi-good) 18%, var(--dyson-raised-bg));
           color: var(--primary-text-color);
         }
         .sensor-aqi.fair {
-          border-color: color-mix(in srgb, #f59e0b 50%, transparent);
-          background: color-mix(in srgb, #f59e0b 18%, var(--dyson-raised-bg));
+          border-color: color-mix(in srgb, var(--dyson-aqi-fair) 50%, transparent);
+          background: color-mix(in srgb, var(--dyson-aqi-fair) 18%, var(--dyson-raised-bg));
           color: var(--primary-text-color);
         }
         .sensor-aqi.poor {
-          border-color: color-mix(in srgb, #ef4444 52%, transparent);
-          background: color-mix(in srgb, #ef4444 20%, var(--dyson-raised-bg));
+          border-color: color-mix(in srgb, var(--dyson-aqi-poor) 52%, transparent);
+          background: color-mix(in srgb, var(--dyson-aqi-poor) 20%, var(--dyson-raised-bg));
           color: var(--primary-text-color);
         }
         .sensor-detail-chip.good {
-          border-color: color-mix(in srgb, #22c55e 46%, transparent);
-          background: color-mix(in srgb, #22c55e 18%, var(--dyson-raised-bg));
+          border-color: color-mix(in srgb, var(--dyson-aqi-good) 46%, transparent);
+          background: color-mix(in srgb, var(--dyson-aqi-good) 18%, var(--dyson-raised-bg));
         }
         .sensor-detail-chip.fair {
-          border-color: color-mix(in srgb, #f59e0b 50%, transparent);
-          background: color-mix(in srgb, #f59e0b 18%, var(--dyson-raised-bg));
+          border-color: color-mix(in srgb, var(--dyson-aqi-fair) 50%, transparent);
+          background: color-mix(in srgb, var(--dyson-aqi-fair) 18%, var(--dyson-raised-bg));
         }
         .sensor-detail-chip.poor {
-          border-color: color-mix(in srgb, #ef4444 52%, transparent);
-          background: color-mix(in srgb, #ef4444 20%, var(--dyson-raised-bg));
+          border-color: color-mix(in srgb, var(--dyson-aqi-poor) 52%, transparent);
+          background: color-mix(in srgb, var(--dyson-aqi-poor) 20%, var(--dyson-raised-bg));
         }
         .sensor-temp ha-icon,
         .sensor-humidity ha-icon,
@@ -3183,7 +3211,7 @@ class HaDysonCard extends HTMLElement {
         }
         .sensor-details-heading ha-icon {
           --mdc-icon-size: 13px;
-          color: var(--primary-color, #03a9f4);
+          color: var(--dyson-color-accent);
         }
         .sensor-details-grid {
           display: grid;
@@ -3220,16 +3248,16 @@ class HaDysonCard extends HTMLElement {
           text-align: center;
         }
         .sensor-detail-item.good {
-          border-color: color-mix(in srgb, #22c55e 46%, transparent);
-          background: color-mix(in srgb, #22c55e 18%, var(--dyson-raised-bg));
+          border-color: color-mix(in srgb, var(--dyson-aqi-good) 46%, transparent);
+          background: color-mix(in srgb, var(--dyson-aqi-good) 18%, var(--dyson-raised-bg));
         }
         .sensor-detail-item.fair {
-          border-color: color-mix(in srgb, #f59e0b 50%, transparent);
-          background: color-mix(in srgb, #f59e0b 18%, var(--dyson-raised-bg));
+          border-color: color-mix(in srgb, var(--dyson-aqi-fair) 50%, transparent);
+          background: color-mix(in srgb, var(--dyson-aqi-fair) 18%, var(--dyson-raised-bg));
         }
         .sensor-detail-item.poor {
-          border-color: color-mix(in srgb, #ef4444 52%, transparent);
-          background: color-mix(in srgb, #ef4444 20%, var(--dyson-raised-bg));
+          border-color: color-mix(in srgb, var(--dyson-aqi-poor) 52%, transparent);
+          background: color-mix(in srgb, var(--dyson-aqi-poor) 20%, var(--dyson-raised-bg));
         }
         .sensor-detail-item span {
           min-width: 0;
@@ -3303,7 +3331,7 @@ class HaDysonCard extends HTMLElement {
           background:
             conic-gradient(
               from var(--sweep-start),
-              color-mix(in srgb, var(--primary-color, #03a9f4) 13%, transparent) 0 var(--sweep-size),
+              color-mix(in srgb, var(--dyson-color-accent) 13%, transparent) 0 var(--sweep-size),
               transparent var(--sweep-size) 360deg
             ),
             repeating-conic-gradient(
@@ -3369,9 +3397,9 @@ class HaDysonCard extends HTMLElement {
         }
         .sweep-dial-option.active span {
           background: transparent;
-          color: var(--primary-color, #03a9f4);
+          color: var(--dyson-color-accent);
           box-shadow: none;
-          text-shadow: 0 0 10px color-mix(in srgb, var(--primary-color, #03a9f4) 24%, transparent);
+          text-shadow: 0 0 10px color-mix(in srgb, var(--dyson-color-accent) 24%, transparent);
         }
         .operation-status {
           min-height: 8px;
@@ -3382,7 +3410,7 @@ class HaDysonCard extends HTMLElement {
           margin: -18px auto -1px;
           padding: 2px 10px;
           border-radius: 999px;
-          background: ${operationActive ? "color-mix(in srgb, var(--primary-color, #03a9f4) 10%, transparent)" : "transparent"};
+          background: ${operationActive ? "color-mix(in srgb, var(--dyson-color-accent) 10%, transparent)" : "transparent"};
           color: var(--secondary-text-color);
           font-size: 0.62rem;
           font-weight: 760;
@@ -3426,9 +3454,9 @@ class HaDysonCard extends HTMLElement {
           --mdc-icon-size: 23px;
         }
         .mode-icon-button.active {
-          background: color-mix(in srgb, var(--primary-color, #4f46e5) 18%, transparent);
+          background: color-mix(in srgb, var(--dyson-color-accent) 18%, transparent);
           color: var(--primary-text-color);
-          box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--primary-color, #4f46e5) 18%, transparent);
+          box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--dyson-color-accent) 18%, transparent);
         }
         .mode-icon-button:disabled,
         .temp-step-button:disabled,
@@ -3555,8 +3583,8 @@ class HaDysonCard extends HTMLElement {
           overflow: hidden;
         }
         .direction-preset-item.confirm-delete {
-          border-color: color-mix(in srgb, #ef4444 68%, transparent);
-          background: color-mix(in srgb, #ef4444 18%, var(--dyson-raised-bg));
+          border-color: color-mix(in srgb, var(--dyson-color-error) 68%, transparent);
+          background: color-mix(in srgb, var(--dyson-color-error) 18%, var(--dyson-raised-bg));
         }
         .direction-preset-button,
         .direction-preset-remove,
@@ -3577,7 +3605,7 @@ class HaDysonCard extends HTMLElement {
           padding: 0 10px;
         }
         .direction-preset-item.confirm-delete .direction-preset-button {
-          color: #ef4444;
+          color: var(--dyson-color-error);
           letter-spacing: 0;
         }
         .direction-preset-button ha-icon,
@@ -3599,8 +3627,8 @@ class HaDysonCard extends HTMLElement {
           font-size: 1rem;
         }
         .direction-preset-item.confirm-delete .direction-preset-remove {
-          color: #ef4444;
-          border-left-color: color-mix(in srgb, #ef4444 54%, transparent);
+          color: var(--dyson-color-error);
+          border-left-color: color-mix(in srgb, var(--dyson-color-error) 54%, transparent);
         }
         .direction-preset-add {
           flex: 0 0 auto;
@@ -3653,9 +3681,9 @@ class HaDysonCard extends HTMLElement {
           box-shadow: var(--dyson-inner-highlight);
         }
         .preset-icon-option.active {
-          border-color: color-mix(in srgb, var(--primary-color, #4f46e5) 36%, transparent);
+          border-color: color-mix(in srgb, var(--dyson-color-accent) 36%, transparent);
           background: var(--dyson-active-bg);
-          color: var(--primary-color, #03a9f4);
+          color: var(--dyson-color-accent);
         }
         .preset-icon-option ha-icon {
           --mdc-icon-size: 18px;
@@ -3729,7 +3757,7 @@ class HaDysonCard extends HTMLElement {
         }
         .error {
           padding: 16px;
-          color: #d9485f;
+          color: var(--dyson-color-error);
         }
         .busy {
           opacity: 0.68;
