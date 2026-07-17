@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.1.3 - 2026-07-17
+
 - Tokenize card-wide colors against Home Assistant theme variables and remove fixed dark-mode CSS overrides to follow active themes consistently.
 - Add optional `sleep_timer_entity` config override for setups that expose the timer through `number` or `input_number` helpers.
 - Rework sleep timer UX to show quick-set buttons only when inactive, and a centered remaining-time display with cancel action while running.

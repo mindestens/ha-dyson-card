@@ -23,14 +23,10 @@ I built this because I dislike having to open the Dyson app just to make the fan
 
 This is a frontend card only. It does not replace the Dyson integration; it uses the fan, climate, switch, select, number, and sensor entities already exposed in Home Assistant.
 
-<p align="center">
-  <img src=".github/images/ha-dyson-card-preview.jpg" alt="HA Dyson Card dashboard preview" width="390">
-</p>
-
 ## Screenshots
 
 <p align="center">
-  <img src=".github/images/ha-dyson-card-preview.jpg" alt="HA Dyson Card current UI preview" width="390">
+  <img src=".github/images/ha-dyson-card-preview-2026-07-17.png" alt="HA Dyson Card current UI preview" width="390">
 </p>
 
 ## Recent Improvements Summary
