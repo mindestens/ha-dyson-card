@@ -27,6 +27,28 @@ This is a frontend card only. It does not replace the Dyson integration; it uses
   <img src=".github/images/ha-dyson-card-preview.jpg" alt="HA Dyson Card dashboard preview" width="390">
 </p>
 
+## Screenshots
+
+<p align="center">
+  <img src=".github/images/ha-dyson-card-preview.jpg" alt="HA Dyson Card current UI preview" width="390">
+</p>
+
+## Recent Improvements Summary
+
+This version combines the latest control, reliability, and theme improvements:
+
+- Sleep timer polish with quick presets when idle, centered countdown while running, and cancel action.
+- Custom timer input changed to minutes (`1..480`) with improved locale labels.
+- Friendly max-limit warning message for invalid timer values, including localized DE/EN wording.
+- Auto-focus on the custom minutes field when opening the `+` timer input.
+- Better timer parsing for multiple duration formats and safer active-timer detection.
+- Service fallback to `number.set_value` / `input_number.set_value` when no Dyson device id is present.
+- Case-insensitive Auto mode handling with a safe non-Auto fallback when disabling Auto.
+- Optional cleanup flags (`hide_unsupported`, `hide_empty_sensors`) and smarter sensor detail toggling.
+- Improved same-device entity discovery, including localized naming patterns.
+- Card-wide theme tokenization and removal of rigid dark-mode overrides.
+- Progressive CSS fallbacks for environments with limited `color-mix` support.
+
 ## Why This Card?
 
 The default Home Assistant entity cards can control a Dyson device, but the experience is scattered across many entities.
