@@ -4,18 +4,14 @@
   <img src=".github/images/ha-dyson-card-icon.png" alt="HA Dyson Card" width="180">
 </p>
 
-[![Release](https://img.shields.io/github/v/release/thanhn062/ha-dyson-card?style=for-the-badge)](https://github.com/thanhn062/ha-dyson-card/releases)
-[![Downloads](https://img.shields.io/github/downloads/thanhn062/ha-dyson-card/total?style=for-the-badge)](https://github.com/thanhn062/ha-dyson-card/releases)
-[![License](https://img.shields.io/badge/license-Apache--2.0-green.svg?style=for-the-badge)](https://github.com/thanhn062/ha-dyson-card/blob/main/LICENSE)
+[![Release](https://img.shields.io/github/v/release/mindestens/ha-dyson-card?style=for-the-badge)](https://github.com/mindestens/ha-dyson-card/releases)
+[![Downloads](https://img.shields.io/github/downloads/mindestens/ha-dyson-card/total?style=for-the-badge)](https://github.com/mindestens/ha-dyson-card/releases)
+[![License](https://img.shields.io/badge/license-Apache--2.0-green.svg?style=for-the-badge)](https://github.com/mindestens/ha-dyson-card/blob/main/LICENSE)
 [![Home Assistant](https://img.shields.io/badge/Home%20Assistant-2024.8.0-blue.svg?style=for-the-badge&logo=home-assistant)](https://www.home-assistant.io/)
 [![HACS](https://img.shields.io/badge/HACS-Default-41BDF5.svg?style=for-the-badge)](https://www.hacs.xyz/docs/use/repositories/dashboard/)
-[![Validate](https://img.shields.io/github/actions/workflow/status/thanhn062/ha-dyson-card/validate.yaml?branch=main&style=for-the-badge&label=validate)](https://github.com/thanhn062/ha-dyson-card/actions/workflows/validate.yaml)
+[![Validate](https://img.shields.io/github/actions/workflow/status/mindestens/ha-dyson-card/validate.yaml?branch=main&style=for-the-badge&label=validate)](https://github.com/mindestens/ha-dyson-card/actions/workflows/validate.yaml)
 [![Requires hass_dyson](https://img.shields.io/badge/Requires-hass__dyson-00A3E0.svg?style=for-the-badge)](https://github.com/cmgrayb/hass-dyson)
 [![Made with AI](https://img.shields.io/badge/Made%20with-AI-lightgrey?style=for-the-badge)](https://github.com/mefengl/made-by-ai)
-[![Commit Messages by AI](https://img.shields.io/badge/Commit%20Messages%20by-AI-green?style=for-the-badge)](https://github.com/mefengl/made-by-ai)
-[![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-FFDD00?style=for-the-badge&logo=buymeacoffee&logoColor=000000)](https://www.buymeacoffee.com/thanhnatos)
-
-> Check out my other Home Assistant related creations: [Maintenance Tracker](https://github.com/thanhn062/ha-maintenance-tracker)
 
 A sleek Lovelace dashboard card for Dyson fans exposed through [`hass_dyson`](https://github.com/cmgrayb/hass-dyson).
 
