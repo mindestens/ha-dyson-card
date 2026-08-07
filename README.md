@@ -71,6 +71,7 @@ The goal is to make the Dyson feel like a polished Home Assistant appliance cont
 
 - Compact badges for temperature, humidity, AQI, and filter life
 - Expandable air-quality details for AQI, PM2.5, PM10, VOC, and NO2
+- Tap PM2.5 and PM10 chips to open the Home Assistant entity history view
 - AQI color coding when status/value can be mapped
 - Same-device entity discovery from the selected Dyson fan entity
 - Home Assistant theme-aware light and dark styling
@@ -85,13 +86,15 @@ Each preset stores:
 - MDI icon
 - center direction
 
-Presets are saved in browser `localStorage` under a key scoped to the fan entity:
+Presets are stored in browser `localStorage` under a key scoped to the fan entity:
 
 ```text
 ha-dyson-card:direction-presets:<fan entity>
 ```
 
-Direction presets are local to the browser/device. They do not sync automatically across phones, tablets, wall panels, or browsers.
+When available, the card also mirrors presets into Home Assistant frontend user data for the current Home Assistant user. This allows presets to be restored after browser storage loss and reused on other devices or browsers signed in as the same user.
+
+Direction presets are user-scoped and can differ across Home Assistant users. They are not global/shared presets across all users by default.
 
 ## Requirements
 
@@ -140,7 +143,8 @@ airflow_control_side: right
 | `hide_unsupported` | boolean | `false` | Hides controls and info chips that are unavailable on the selected device instead of showing them as disabled/empty. |
 | `hide_empty_sensors` | boolean | `false` | Hides sensor badges with empty values (`unknown`, `unavailable`, or missing values). |
 | `sensor_more_button_threshold` | number | `4` | Shows the More/Less sensor toggle only when the visible sensor item count is greater than this value. |
-| `sensor_detail_layout` | `inline` or `panel` | `panel` | Forces where sensor details are rendered: inline in the top strip or in the details panel.
+| `sensor_detail_layout` | `inline` or `panel` | `panel` | Forces where sensor details are rendered: inline in the top strip or in the details panel. |
+| `show_debug` | boolean | `false` | Shows an expandable in-card debug panel with live entity and preset sync diagnostics. |
 
 Example with both cleanup options enabled:
 
@@ -155,6 +159,22 @@ hide_empty_sensors: true
 sensor_more_button_threshold: 5
 sensor_detail_layout: inline
 ```
+
+## Debug Panel
+
+The debug output is rendered inside the card (not in browser developer tools).
+
+It focuses on relevant runtime data, especially direction preset sync source, last sync time, and persistence status.
+
+Enable it via YAML:
+
+```yaml
+type: custom:ha-dyson-card
+entity: fan.my_dyson
+show_debug: true
+```
+
+When enabled, the card shows a `Live Dyson Debug` section at the bottom.
 
 ## Control Mapping
 
@@ -191,6 +211,8 @@ The `More` section expands air-quality details when matching sensors exist:
 | PM10 | Larger particulate matter around 10 microns. |
 | VOC | Volatile Organic Compounds from sources like cooking, cleaning products, smoke, or materials. |
 | NO2 | Nitrogen dioxide, commonly associated with combustion sources. |
+
+Tapping `PM2.5` or `PM10` opens the more-info/history dialog for the corresponding entity.
 
 ## Model Compatibility
 
@@ -237,6 +259,10 @@ Check that the missing feature is exposed by `hass_dyson` as an entity or suppor
 ### Direction or sweep behaves differently than expected
 
 Dyson models and `hass_dyson` entity sets vary. The card prefers same-device oscillation select/number entities when available and falls back to `hass_dyson.set_oscillation_angles` for angle commands.
+
+### Direction presets disappeared after a restart
+
+Save or rename one direction preset, then reload Home Assistant and open the dashboard from a second browser/device using the same Home Assistant user. If the preset appears there, frontend user-data mirroring is active. If not, check browser storage restrictions and whether your Home Assistant frontend session can persist user data.
 
 ## Development
 

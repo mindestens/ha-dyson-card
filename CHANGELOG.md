@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+No unreleased changes.
+
+## 0.1.4 - 2026-08-07
+
+- Persist direction presets to Home Assistant frontend user data in addition to browser localStorage.
+- Recover direction presets from user data after browser storage loss and show a warning when preset persistence fails.
+- Add a one-time console version banner for the card.
+- Streamline the `Live Dyson Debug` panel to highlight direction preset sync status and last sync timestamp.
+- Open the entity more-info/history view when tapping PM2.5 or PM10 chips.
+- Document preset persistence behavior, PM history tap actions, and the `show_debug` option in the README.
+
 ## 0.1.3 - 2026-07-17
 
 - Tokenize card-wide colors against Home Assistant theme variables and remove fixed dark-mode CSS overrides to follow active themes consistently.

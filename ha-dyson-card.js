@@ -1,3 +1,10 @@
+const HA_DYSON_CARD_META = {
+  type: "ha-dyson-card",
+  name: "HA Dyson Card",
+  version: "0.1.4",
+  description: "A Dyson Lovelace card with direct oscillation aiming and cone-width control.",
+};
+
 class HaDysonCard extends HTMLElement {
   static _registryCache = null;
 
@@ -198,6 +205,21 @@ class HaDysonCard extends HTMLElement {
     this._presetDraftName = "";
     this._presetDraftIcon = "mdi:crosshairs-gps";
     this._pendingPresetDeleteId = null;
+    this._presetCache = [];
+    this._presetHydratedEntity = "";
+    this._presetHydrationPromise = null;
+    this._presetStorageIssue = "";
+    this._presetSyncState = {
+      hydrated: false,
+      source: "uninitialized",
+      local_count: 0,
+      user_data_count: 0,
+      selected_count: 0,
+      local_write_ok: null,
+      user_data_write_ok: null,
+      last_sync_at: 0,
+    };
+    this._debugPanelOpen = false;
     this._sensorDetailsOpen = false;
     this._timerNotice = null;
     this._timerNoticeTimer = null;
@@ -230,10 +252,26 @@ class HaDysonCard extends HTMLElement {
     this._presetDraftName = "";
     this._presetDraftIcon = "mdi:crosshairs-gps";
     this._pendingPresetDeleteId = null;
+    this._presetCache = [];
+    this._presetHydratedEntity = "";
+    this._presetHydrationPromise = null;
+    this._presetStorageIssue = "";
+    this._presetSyncState = {
+      hydrated: false,
+      source: "uninitialized",
+      local_count: 0,
+      user_data_count: 0,
+      selected_count: 0,
+      local_write_ok: null,
+      user_data_write_ok: null,
+      last_sync_at: 0,
+    };
+    this._debugPanelOpen = false;
     this._sensorDetailsOpen = false;
     this._clearPending(false);
     this._clearPendingSpeed(false);
     this._clearOptimisticDirection(false);
+    this._hydrateDirectionPresets(true);
     this._render();
   }
 
@@ -242,6 +280,7 @@ class HaDysonCard extends HTMLElement {
     const preserveTimerInputFocus = this._timerInputHasFocus();
     this._hass = hass;
     this._ensureDerived();
+    this._hydrateDirectionPresets();
     this._reconcilePendingState();
     if (!preserveEditorFocus && !preserveTimerInputFocus) {
       this._render();
@@ -999,6 +1038,20 @@ class HaDysonCard extends HTMLElement {
       more_details: "Mehr",
       hide_debug: "Debug ausblenden",
       air_quality: "Luftqualität",
+      open_history_for: "Verlauf öffnen: {label}",
+      debug_source_init: "Initialisierung",
+      debug_source_empty: "Keine Voreinstellungen gespeichert",
+      debug_source_local: "Nur lokal",
+      debug_source_user_data: "HA Benutzerdaten",
+      debug_source_local_and_user_data: "Lokal + HA Benutzerdaten",
+      debug_source_user_data_only: "Nur HA Benutzerdaten",
+      debug_source_local_only: "Nur lokal",
+      debug_source_local_tie: "Lokal (Gleichstand)",
+      debug_source_write_failed: "Speichern fehlgeschlagen",
+      debug_source_unknown: "Unbekannt",
+      debug_never: "nie",
+      debug_issue_none: "keine",
+      debug_no_presets_yet: "Noch keine Voreinstellungen gespeichert",
     };
 
     const en = {
@@ -1053,6 +1106,20 @@ class HaDysonCard extends HTMLElement {
       more_details: "More",
       hide_debug: "Hide debug",
       air_quality: "Air Quality",
+      open_history_for: "Open history: {label}",
+      debug_source_init: "Initializing",
+      debug_source_empty: "No presets saved",
+      debug_source_local: "Local only",
+      debug_source_user_data: "HA user data",
+      debug_source_local_and_user_data: "Local + HA user data",
+      debug_source_user_data_only: "HA user data only",
+      debug_source_local_only: "Local only",
+      debug_source_local_tie: "Local (tie)",
+      debug_source_write_failed: "Write failed",
+      debug_source_unknown: "Unknown",
+      debug_never: "never",
+      debug_issue_none: "none",
+      debug_no_presets_yet: "No direction presets saved yet",
     };
 
     const dict = this._localeCode().startsWith("de") ? de : en;
@@ -1157,12 +1224,27 @@ class HaDysonCard extends HTMLElement {
     return "neutral";
   }
 
+  _isAirQualityHistoryLabel(label) {
+    const normalized = String(label || "").trim().toUpperCase();
+    return normalized === "PM2.5" || normalized === "PM10";
+  }
+
+  _openEntityHistory(entityId) {
+    if (!entityId) return;
+    this.dispatchEvent(new CustomEvent("hass-more-info", {
+      bubbles: true,
+      composed: true,
+      detail: { entityId },
+    }));
+  }
+
   _renderInlineSensorDetails(items) {
     if (!Array.isArray(items) || !items.length) return "";
     return items.map((item) => {
       const tone = this._sensorDetailTone(item.label, item.value);
+      const historyEnabled = this._isAirQualityHistoryLabel(item.label);
       return `
-        <span class="sensor-detail-chip ${tone}" title="${this._escapeHtml(item.entityId)}">
+        <span class="sensor-detail-chip ${tone} ${historyEnabled ? "sensor-detail-history" : ""}" ${historyEnabled ? `data-air-quality-history="${this._escapeHtml(item.entityId)}"` : ""} title="${this._escapeHtml(item.entityId)}" ${historyEnabled ? `aria-label="${this._escapeHtml(this._t("open_history_for", { label: item.label }))}"` : ""}>
           <strong>${this._escapeHtml(item.label)}</strong>
           <span>${this._escapeHtml(item.value)}</span>
         </span>
@@ -1184,8 +1266,9 @@ class HaDysonCard extends HTMLElement {
             <div class="sensor-details-grid ${group.id === "air_quality" ? "compact" : ""}">
               ${group.items.map((item) => {
                 const tone = this._sensorDetailTone(item.label, item.value);
+                const historyEnabled = this._isAirQualityHistoryLabel(item.label);
                 return `
-                <div class="sensor-detail-item ${group.id === "air_quality" ? "compact" : ""} ${tone}" title="${this._escapeHtml(item.entityId)}">
+                <div class="sensor-detail-item ${group.id === "air_quality" ? "compact" : ""} ${tone} ${historyEnabled ? "sensor-detail-history" : ""}" ${historyEnabled ? `data-air-quality-history="${this._escapeHtml(item.entityId)}"` : ""} title="${this._escapeHtml(item.entityId)}" ${historyEnabled ? `aria-label="${this._escapeHtml(this._t("open_history_for", { label: item.label }))}"` : ""}>
                   <span>${this._escapeHtml(item.label)}</span>
                   <strong>${this._escapeHtml(item.value)}</strong>
                 </div>
@@ -1415,33 +1498,235 @@ class HaDysonCard extends HTMLElement {
     return `ha-dyson-card:direction-presets:${this._config.entity || "default"}`;
   }
 
-  _directionPresets() {
-    try {
-      const raw = window.localStorage?.getItem(this._presetStorageKey());
-      const parsed = raw ? JSON.parse(raw) : [];
-      if (!Array.isArray(parsed)) return [];
-      return parsed
-        .map((preset) => {
-          const direction = Number(preset.direction);
-          return {
-            id: String(preset.id || ""),
-            name: String(preset.name || "").trim(),
-            icon: String(preset.icon || "mdi:crosshairs-gps").trim(),
-            direction: Number.isFinite(direction) ? this._normalizeAngle(direction) : NaN,
-          };
-        })
-        .filter((preset) => preset.id && preset.name && Number.isFinite(preset.direction));
-    } catch (_error) {
-      return [];
+  _presetUserDataKey() {
+    return `direction-presets:${this._config.entity || "default"}`;
+  }
+
+  _updatePresetSyncState(partial) {
+    this._presetSyncState = {
+      ...(this._presetSyncState || {}),
+      ...(partial || {}),
+    };
+  }
+
+  _setPresetStorageIssue(message, render = true) {
+    const normalized = String(message || "");
+    if (this._presetStorageIssue === normalized) return;
+    this._presetStorageIssue = normalized;
+    if (render) {
+      this._render();
     }
   }
 
-  _saveDirectionPresets(presets) {
-    try {
-      window.localStorage?.setItem(this._presetStorageKey(), JSON.stringify(presets));
-    } catch (_error) {
-      // Local storage can be unavailable in restricted browser contexts.
+  _sanitizeDirectionPresets(rawPresets) {
+    if (!Array.isArray(rawPresets)) return [];
+    const seen = new Set();
+    const sanitized = [];
+    for (const preset of rawPresets) {
+      const id = String(preset?.id || "").trim();
+      const name = String(preset?.name || "").trim();
+      const iconRaw = String(preset?.icon || "mdi:crosshairs-gps").trim();
+      const direction = Number(preset?.direction);
+      if (!id || !name || !Number.isFinite(direction) || seen.has(id)) continue;
+      seen.add(id);
+      sanitized.push({
+        id,
+        name,
+        icon: iconRaw.startsWith("mdi:") ? iconRaw : `mdi:${iconRaw}`,
+        direction: this._normalizeAngle(direction),
+      });
     }
+    return sanitized;
+  }
+
+  _parseDirectionPresetPayload(rawValue) {
+    let parsed = rawValue;
+    if (typeof parsed === "string") {
+      try {
+        parsed = JSON.parse(parsed);
+      } catch (_error) {
+        return { presets: [], updatedAt: 0 };
+      }
+    }
+    if (Array.isArray(parsed)) {
+      return {
+        presets: this._sanitizeDirectionPresets(parsed),
+        updatedAt: 0,
+      };
+    }
+    if (!parsed || typeof parsed !== "object") {
+      return { presets: [], updatedAt: 0 };
+    }
+    return {
+      presets: this._sanitizeDirectionPresets(parsed.presets),
+      updatedAt: Number.isFinite(Number(parsed.updated_at)) ? Number(parsed.updated_at) : 0,
+    };
+  }
+
+  _buildDirectionPresetPayload(presets) {
+    return {
+      version: 1,
+      updated_at: Date.now(),
+      presets: this._sanitizeDirectionPresets(presets),
+    };
+  }
+
+  _readLocalDirectionPresets() {
+    try {
+      return this._parseDirectionPresetPayload(window.localStorage?.getItem(this._presetStorageKey()));
+    } catch (_error) {
+      return { presets: [], updatedAt: 0 };
+    }
+  }
+
+  _writeLocalDirectionPresets(payload) {
+    try {
+      window.localStorage?.setItem(this._presetStorageKey(), JSON.stringify(payload));
+      return true;
+    } catch (_error) {
+      return false;
+    }
+  }
+
+  async _readUserDirectionPresets() {
+    if (!this._hass?.callWS || !this._config.entity) {
+      return { presets: [], updatedAt: 0 };
+    }
+    try {
+      const data = await this._hass.callWS({
+        type: "frontend/get_user_data",
+        key: this._presetUserDataKey(),
+        default_value: null,
+      });
+      return this._parseDirectionPresetPayload(data);
+    } catch (_error) {
+      return { presets: [], updatedAt: 0 };
+    }
+  }
+
+  async _writeUserDirectionPresets(payload) {
+    if (!this._hass?.callWS || !this._config.entity) return false;
+    try {
+      await this._hass.callWS({
+        type: "frontend/set_user_data",
+        key: this._presetUserDataKey(),
+        value: payload,
+      });
+      return true;
+    } catch (_error) {
+      return false;
+    }
+  }
+
+  async _hydrateDirectionPresets(force = false) {
+    const entityId = this._config.entity || "";
+    if (!entityId) {
+      this._presetCache = [];
+      return;
+    }
+
+    if (!force && this._presetHydratedEntity === entityId) {
+      return;
+    }
+    if (this._presetHydrationPromise) {
+      return this._presetHydrationPromise;
+    }
+
+    this._presetHydrationPromise = (async () => {
+      const local = this._readLocalDirectionPresets();
+      this._presetCache = local.presets;
+
+      const userData = await this._readUserDirectionPresets();
+      const localJson = JSON.stringify(local.presets);
+      const userJson = JSON.stringify(userData.presets);
+      const hasLocal = local.presets.length > 0;
+      const hasUserData = userData.presets.length > 0;
+
+      let selected = local;
+      let source = hasLocal ? "local_storage" : "empty";
+      if (hasUserData && (!hasLocal || userData.updatedAt > local.updatedAt)) {
+        selected = userData;
+        source = "user_data";
+      } else if (hasLocal && hasUserData && local.updatedAt > userData.updatedAt) {
+        source = "local_storage";
+      } else if (hasLocal && hasUserData && local.updatedAt === userData.updatedAt && localJson !== userJson) {
+        source = "local_storage_tie_break";
+      }
+
+      this._presetCache = selected.presets;
+      this._presetHydratedEntity = entityId;
+
+      this._updatePresetSyncState({
+        hydrated: true,
+        source,
+        local_count: local.presets.length,
+        user_data_count: userData.presets.length,
+        selected_count: selected.presets.length,
+        last_sync_at: Date.now(),
+      });
+
+      if (selected !== local || localJson !== userJson) {
+        const localMirrorSaved = this._writeLocalDirectionPresets(this._buildDirectionPresetPayload(selected.presets));
+        this._updatePresetSyncState({ local_write_ok: localMirrorSaved });
+      }
+      if (hasLocal || hasUserData) {
+        const userMirrorSaved = await this._writeUserDirectionPresets(this._buildDirectionPresetPayload(selected.presets));
+        this._updatePresetSyncState({ user_data_write_ok: userMirrorSaved });
+      }
+
+      if (this._presetStorageIssue) {
+        this._setPresetStorageIssue("");
+      }
+      this._render();
+    })().finally(() => {
+      this._presetHydrationPromise = null;
+    });
+
+    return this._presetHydrationPromise;
+  }
+
+  _directionPresets() {
+    if (!this._presetHydrationPromise && this._config.entity) {
+      this._hydrateDirectionPresets();
+    }
+    return Array.isArray(this._presetCache) ? this._presetCache : [];
+  }
+
+  _saveDirectionPresets(presets) {
+    const payload = this._buildDirectionPresetPayload(presets);
+    this._presetCache = payload.presets;
+
+    const localSaved = this._writeLocalDirectionPresets(payload);
+    if (!localSaved) {
+      this._setPresetStorageIssue("Direction presets could not be saved in browser storage. They may disappear after reload.", false);
+    }
+    this._updatePresetSyncState({
+      hydrated: true,
+      source: localSaved ? "local_storage" : "write_failed",
+      local_count: localSaved ? payload.presets.length : this._presetSyncState.local_count,
+      selected_count: payload.presets.length,
+      local_write_ok: localSaved,
+      last_sync_at: Date.now(),
+    });
+
+    this._writeUserDirectionPresets(payload).then((remoteSaved) => {
+      this._updatePresetSyncState({
+        source: remoteSaved
+          ? (localSaved ? "local_and_user_data" : "user_data_only")
+          : (localSaved ? "local_storage_only" : "write_failed"),
+        user_data_count: remoteSaved ? payload.presets.length : this._presetSyncState.user_data_count,
+        user_data_write_ok: remoteSaved,
+        last_sync_at: Date.now(),
+      });
+      if (!localSaved && !remoteSaved) {
+        this._setPresetStorageIssue("Direction presets could not be persisted. Check browser storage permissions and Home Assistant user data access.");
+        return;
+      }
+      this._presetHydratedEntity = this._config.entity || "";
+      if (this._presetStorageIssue) {
+        this._setPresetStorageIssue("");
+      }
+    });
   }
 
   _addDirectionPreset(name, icon, direction) {
@@ -1502,6 +1787,7 @@ class HaDysonCard extends HTMLElement {
 
     return `
       <div class="direction-presets">
+        ${this._presetStorageIssue ? `<div class="preset-storage-warning" role="status">${this._escapeHtml(this._presetStorageIssue)}</div>` : ""}
         <div class="direction-presets-row">
           ${presets.length ? presets.map((preset) => {
             const confirmingDelete = this._pendingPresetDeleteId === preset.id;
@@ -1592,6 +1878,16 @@ class HaDysonCard extends HTMLElement {
     return JSON.stringify(value, null, 2);
   }
 
+  _formatDebugTimestamp(value) {
+    const time = Number(value);
+    if (!Number.isFinite(time) || time <= 0) return this._t("debug_never");
+    try {
+      return new Date(time).toLocaleString();
+    } catch (_error) {
+      return String(time);
+    }
+  }
+
   _renderDebugRow(label, value) {
     return `
       <div class="debug-row">
@@ -1623,74 +1919,63 @@ class HaDysonCard extends HTMLElement {
 
   _renderDebugPanel(entityId, attributes, bounds, direction, width, controlReady) {
     if (!this._config.show_debug) return "";
-    const relatedEntities = this._derived?.relatedEntities || [];
-    const debugEntities = Array.from(new Set([
-      entityId,
-      this._temperatureEntity(),
-      this._humidityEntity(),
-      this._airQualityEntity(),
-      this._vocEntity(),
-      this._nightModeEntity(),
-      ...this._filterEntities(),
-      this._oscillationSelectEntity(),
-      this._derived?.oscillationLowEntity || "",
-      this._derived?.oscillationHighEntity || "",
-      this._oscillationCenterEntity(),
-      this._oscillationAngleEntity(),
-      ...relatedEntities,
-    ].filter(Boolean))).sort();
-
-    const derivedDebug = {
-      control_ready: controlReady,
-      device_id: this._deviceId(),
-      device_name: this._derived?.device?.name_by_user || this._derived?.device?.name || "",
-      temperature_entity: this._temperatureEntity(),
-      humidity_entity: this._humidityEntity(),
-      air_quality_entity: this._airQualityEntity(),
-      voc_entity: this._vocEntity(),
-      night_mode_entity: this._nightModeEntity(),
-      climate_entity: this._climateEntity(),
-      filter_entities: this._filterEntities(),
-      oscillation_select_entity: this._oscillationSelectEntity(),
-      oscillation_low_entity: this._derived?.oscillationLowEntity || "",
-      oscillation_high_entity: this._derived?.oscillationHighEntity || "",
-      oscillation_center_entity: this._oscillationCenterEntity(),
-      oscillation_span_entity: this._oscillationAngleEntity(),
-      sleep_timer_entity: this._sleepTimerEntity(),
-      related_entity_count: relatedEntities.length,
+    const presetSync = this._presetSyncState || {};
+    const sourceLabels = {
+      uninitialized: this._t("debug_source_init"),
+      empty: this._t("debug_source_empty"),
+      local_storage: this._t("debug_source_local"),
+      user_data: this._t("debug_source_user_data"),
+      local_and_user_data: this._t("debug_source_local_and_user_data"),
+      user_data_only: this._t("debug_source_user_data_only"),
+      local_storage_only: this._t("debug_source_local_only"),
+      local_storage_tie_break: this._t("debug_source_local_tie"),
+      write_failed: this._t("debug_source_write_failed"),
     };
 
-    const computedDebug = {
+    const selectedCount = Number.isFinite(Number(presetSync.selected_count))
+      ? Number(presetSync.selected_count)
+      : this._directionPresets().length;
+
+    const syncSummary = {
+      source: sourceLabels[presetSync.source] || presetSync.source || this._t("debug_source_unknown"),
+      last_sync: this._formatDebugTimestamp(presetSync.last_sync_at),
+      hydrated: Boolean(presetSync.hydrated),
+      presets_selected: selectedCount,
+      presets_local: presetSync.local_count ?? 0,
+      presets_user_data: presetSync.user_data_count ?? 0,
+      local_write_ok: presetSync.local_write_ok,
+      user_data_write_ok: presetSync.user_data_write_ok,
+      issue: this._presetStorageIssue || this._t("debug_issue_none"),
+      note: selectedCount > 0 ? "" : this._t("debug_no_presets_yet"),
+    };
+
+    const directionSummary = {
+      entity: entityId,
+      control_ready: controlReady,
       source_direction: this._sourceDirection(attributes),
       source_width: this._sourceWidth(attributes),
       rendered_direction: direction,
       rendered_width: width,
-      bounds,
-      oscillation_enabled: this._oscillationEnabled(attributes),
       pending_active: this._pendingActive(),
-      pending_direction: this._pendingDirection,
-      pending_width: this._pendingWidth,
-      pending_label: this._pendingLabel,
-      pending_speed: this._pendingSpeed,
-      pending_speed_active: this._pendingSpeedActive(),
+      pending_label: this._pendingLabel || "",
       busy: this._busy,
       dragging: this._draggingDial,
     };
 
     return `
-      <details class="debug-panel">
+      <details class="debug-panel" ${this._debugPanelOpen ? "open" : ""}>
         <summary>
           <span>Live Dyson Debug</span>
-          <strong>${debugEntities.length} entities</strong>
+          <strong>${this._escapeHtml(syncSummary.source)}</strong>
         </summary>
         <div class="debug-grid">
-          ${this._renderDebugRow("config", this._config)}
-          ${this._renderDebugRow("derived", derivedDebug)}
-          ${this._renderDebugRow("computed", computedDebug)}
-          ${this._renderDebugRow("fan_attributes", attributes)}
-        </div>
-        <div class="debug-entities">
-          ${debugEntities.map((debugEntityId) => this._renderEntityDebug(debugEntityId)).join("")}
+          ${this._renderDebugRow("direction_preset_sync", syncSummary)}
+          ${this._renderDebugRow("direction_runtime", directionSummary)}
+          ${this._renderDebugRow("timer", {
+            timer_entity: this._sleepTimerEntity(),
+            timer_seconds: this._sleepTimerRemainingSeconds(attributes),
+            timer_label: this._sleepTimerDisplayValue(attributes),
+          })}
         </div>
       </details>
     `;
@@ -2291,6 +2576,15 @@ class HaDysonCard extends HTMLElement {
         this._render();
       }
     });
+
+    this.shadowRoot?.querySelectorAll("[data-air-quality-history]")?.forEach((node) => {
+      node.addEventListener("click", (event) => {
+        event.stopPropagation();
+        const entityId = node.getAttribute("data-air-quality-history") || "";
+        if (!entityId) return;
+        this._openEntityHistory(entityId);
+      });
+    });
   }
 
   async _setSweepWidth(width, attributes) {
@@ -2344,6 +2638,11 @@ class HaDysonCard extends HTMLElement {
 
   _render() {
     if (!this.shadowRoot) return;
+
+    const existingDebugPanel = this.shadowRoot.querySelector(".debug-panel");
+    if (existingDebugPanel) {
+      this._debugPanelOpen = existingDebugPanel.open;
+    }
 
     const entityId = this._config.entity;
     const fan = entityId ? this._hass?.states?.[entityId] : null;
@@ -3145,6 +3444,16 @@ class HaDysonCard extends HTMLElement {
           font-weight: 800;
           color: var(--primary-text-color);
         }
+        .sensor-detail-history {
+          pointer-events: auto;
+          cursor: pointer;
+        }
+        .sensor-detail-history:hover {
+          border-color: color-mix(in srgb, var(--dyson-color-accent) 52%, transparent);
+          box-shadow:
+            var(--dyson-inner-highlight),
+            0 0 0 1px color-mix(in srgb, var(--dyson-color-accent) 28%, transparent);
+        }
         .sensor-aqi.good {
           border-color: color-mix(in srgb, var(--dyson-aqi-good) 46%, transparent);
           background: color-mix(in srgb, var(--dyson-aqi-good) 18%, var(--dyson-raised-bg));
@@ -3563,6 +3872,12 @@ class HaDysonCard extends HTMLElement {
           overflow-x: auto;
           scrollbar-width: none;
         }
+        .preset-storage-warning {
+          color: var(--warning-color, #f59e0b);
+          font-size: 0.7rem;
+          font-weight: 760;
+          padding: 0 6px;
+        }
         .direction-presets-empty {
           color: var(--secondary-text-color);
           font-size: 0.72rem;
@@ -3703,14 +4018,14 @@ class HaDysonCard extends HTMLElement {
           align-items: center;
           justify-content: space-between;
           gap: 12px;
-          font-size: 0.78rem;
+          font-size: 0.9rem;
           font-weight: 700;
           color: var(--primary-text-color);
         }
         .debug-panel > summary strong,
         .debug-entity > summary strong {
           color: var(--secondary-text-color);
-          font-size: 0.72rem;
+          font-size: 0.8rem;
           font-weight: 700;
           white-space: nowrap;
         }
@@ -3725,19 +4040,20 @@ class HaDysonCard extends HTMLElement {
         }
         .debug-label {
           color: var(--secondary-text-color);
-          font-size: 0.7rem;
+          font-size: 0.78rem;
           font-weight: 700;
           text-transform: uppercase;
         }
         .debug-value {
           margin: 0;
-          max-height: 180px;
+          max-height: 240px;
           overflow: auto;
           border-radius: 8px;
-          padding: 8px;
+          padding: 10px;
           background: var(--dyson-inset-bg);
           color: var(--primary-text-color);
-          font: 600 0.72rem ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+          font: 600 0.84rem ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+          line-height: 1.35;
           white-space: pre-wrap;
           word-break: break-word;
         }
@@ -3967,19 +4283,35 @@ class HaDysonCard extends HTMLElement {
           ${showDirectionPresets ? this._renderDirectionPresets(direction, width, controlReady) : ""}
 
           ${controlReady ? "" : `<div class="helper">This card is still resolving the related Dyson device and companion entities from the selected fan entity.</div>`}
+          ${this._renderDebugPanel(entityId, attributes, bounds, direction, width, controlReady)}
         </div>
       </ha-card>
     `;
 
     this._bindControls(attributes, powerState);
+    const debugPanel = this.shadowRoot.querySelector(".debug-panel");
+    if (debugPanel) {
+      debugPanel.addEventListener("toggle", () => {
+        this._debugPanelOpen = debugPanel.open;
+      });
+    }
   }
 }
 
 customElements.define("ha-dyson-card", HaDysonCard);
 
+if (!window.__haDysonCardBannerShown) {
+  window.__haDysonCardBannerShown = true;
+  console.info(
+    "%c" + HA_DYSON_CARD_META.name + "%c v" + HA_DYSON_CARD_META.version,
+    "background:#ffffff;color:#c62828;padding:2px 8px;border-radius:4px 0 0 4px;font-weight:800;border:1px solid #c62828;border-right:0;",
+    "background:#ffffff;color:#c62828;padding:2px 8px;border-radius:0 4px 4px 0;font-weight:800;border:1px solid #c62828;border-left:0;"
+  );
+}
+
 window.customCards = window.customCards || [];
 window.customCards.push({
-  type: "ha-dyson-card",
-  name: "HA Dyson Card",
-  description: "A Dyson Lovelace card with direct oscillation aiming and cone-width control.",
+  type: HA_DYSON_CARD_META.type,
+  name: HA_DYSON_CARD_META.name,
+  description: HA_DYSON_CARD_META.description,
 });
